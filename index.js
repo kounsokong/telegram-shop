@@ -2,7 +2,7 @@ const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 
 // ⚠️ CHANGE THESE TWO LINES:
-const BOT_TOKEN = 'PASTE_YOUR_BOT_TOKEN_HERE';
+const BOT_TOKEN = '5115555200:AAESOTMyoEaeVa-aA6tj9sUYS2b6n5gFFeg';
 const SHOP_URL = 'https://yourusername.github.io/telegram-shop';
 
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
