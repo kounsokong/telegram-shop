@@ -3,74 +3,211 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Shop</title>
+  <title>Telegram Shop</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
+<body class="bg-gray-50">
   <div id="app"></div>
   
   <script>
+    // Products list
     const products = [
-      { id: 1, name: 'Headphones', price: 79.99, emoji: '🎧' },
-      { id: 2, name: 'Smart Watch', price: 199.99, emoji: '⌚' },
-      { id: 3, name: 'Phone Case', price: 24.99, emoji: '📱' },
-      { id: 4, name: 'Charger', price: 39.99, emoji: '🔋' },
+      { id: 1, name: 'Wireless Headphones', price: 79.99, emoji: '🎧', desc: 'Premium sound' },
+      { id: 2, name: 'Smart Watch', price: 199.99, emoji: '⌚', desc: 'Track fitness' },
+      { id: 3, name: 'Phone Case', price: 24.99, emoji: '📱', desc: 'Protective' },
+      { id: 4, name: 'Portable Charger', price: 39.99, emoji: '🔋', desc: '20000mAh' },
+      { id: 5, name: 'Bluetooth Speaker', price: 59.99, emoji: '🔊', desc: '360° sound' },
+      { id: 6, name: 'USB-C Cable', price: 14.99, emoji: '🔌', desc: 'Fast charging' },
     ];
     
     let cart = [];
     const tg = window.Telegram.WebApp;
+    
+    // Initialize Telegram Web App
     tg.ready();
     tg.expand();
+    tg.MainButton.setText('View Cart (0)');
+    tg.MainButton.show();
     
-    function render() {
-      const app = document.getElementById('app');
+    // Add to cart function
+    function addToCart(productId) {
+      const product = products.find(p => p.id === productId);
+      const existingItem = cart.find(item => item.id === productId);
       
-      let html = '<div class="p-4 bg-gray-50 min-h-screen">';
-      html += '<h1 class="text-2xl font-bold mb-4">Shop</h1>';
-      html += '<div class="grid grid-cols-2 gap-4">';
+      if (existingItem) {
+        existingItem.quantity += 1;
+      } else {
+        cart.push({ ...product, quantity: 1 });
+      }
       
-      products.forEach(p => {
+      tg.HapticFeedback.impactOccurred('light');
+      updateCart();
+    }
+    
+    // Remove from cart
+    function removeFromCart(productId) {
+      cart = cart.filter(item => item.id !== productId);
+      tg.HapticFeedback.impactOccurred('medium');
+      updateCart();
+    }
+    
+    // Update quantity
+    function updateQuantity(productId, change) {
+      const item = cart.find(item => item.id === productId);
+      if (item) {
+        item.quantity += change;
+        if (item.quantity <= 0) {
+          removeFromCart(productId);
+        } else {
+          tg.HapticFeedback.impactOccurred('light');
+          updateCart();
+        }
+      }
+    }
+    
+    // Calculate total
+    function getTotal() {
+      return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    }
+    
+    // Update cart display
+    function updateCart() {
+      const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+      const total = getTotal();
+      
+      if (totalItems > 0) {
+        tg.MainButton.setText(`Checkout ($${total.toFixed(2)}) • ${totalItems} items`);
+        tg.MainButton.show();
+      } else {
+        tg.MainButton.setText('Cart is empty');
+        tg.MainButton.hide();
+      }
+      
+      renderCart();
+    }
+    
+    // Render products
+    function renderProducts() {
+      let html = `
+        <div class="p-4">
+          <h1 class="text-2xl font-bold text-gray-800 mb-2">Shop</h1>
+          <p class="text-gray-600 mb-6">Browse our products</p>
+          <div class="grid grid-cols-2 gap-4">
+      `;
+      
+      products.forEach(product => {
         html += `
-          <div class="bg-white p-4 rounded-lg shadow">
-            <div class="text-4xl mb-2 text-center">${p.emoji}</div>
-            <div class="font-bold">${p.name}</div>
-            <div class="text-blue-600">$${p.price}</div>
-            <button onclick="addToCart(${p.id})" class="mt-2 bg-blue-500 text-white px-4 py-2 rounded w-full">
-              Add to Cart
-            </button>
+          <div class="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
+            <div class="text-5xl mb-3 text-center">${product.emoji}</div>
+            <h3 class="font-semibold text-gray-800 text-sm mb-1">${product.name}</h3>
+            <p class="text-xs text-gray-500 mb-2">${product.desc}</p>
+            <div class="flex items-center justify-between">
+              <span class="text-lg font-bold text-blue-600">$${product.price}</span>
+              <button 
+                onclick="addToCart(${product.id})" 
+                class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition">
+                Add +
+              </button>
+            </div>
           </div>
         `;
       });
       
       html += '</div></div>';
-      app.innerHTML = html;
-      
-      tg.MainButton.setText(`Checkout ($${getTotal().toFixed(2)})`);
-      if (cart.length > 0) {
-        tg.MainButton.show();
-      } else {
-        tg.MainButton.hide();
+      document.getElementById('app').innerHTML = html;
+    }
+    
+    // Render cart
+    function renderCart() {
+      if (cart.length === 0) {
+        renderProducts();
+        return;
       }
+      
+      let html = `
+        <div class="p-4">
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h1 class="text-2xl font-bold text-gray-800">Cart</h1>
+              <p class="text-gray-600">${cart.length} items</p>
+            </div>
+            <button onclick="renderProducts()" class="text-blue-600 font-medium">
+              ← Continue Shopping
+            </button>
+          </div>
+          <div class="space-y-3">
+      `;
+      
+      cart.forEach(item => {
+        const subtotal = item.price * item.quantity;
+        html += `
+          <div class="bg-white rounded-lg shadow p-4">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="text-3xl">${item.emoji}</div>
+              <div class="flex-1">
+                <h3 class="font-semibold text-gray-800">${item.name}</h3>
+                <p class="text-sm text-gray-500">$${item.price} each</p>
+              </div>
+              <button 
+                onclick="removeFromCart(${item.id})" 
+                class="text-red-500 hover:text-red-700 font-bold">
+                ✕
+              </button>
+            </div>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3 bg-gray-100 rounded-lg p-1">
+                <button 
+                  onclick="updateQuantity(${item.id}, -1)" 
+                  class="w-8 h-8 bg-white rounded hover:bg-gray-200 font-bold">
+                  −
+                </button>
+                <span class="font-semibold w-8 text-center">${item.quantity}</span>
+                <button 
+                  onclick="updateQuantity(${item.id}, 1)" 
+                  class="w-8 h-8 bg-white rounded hover:bg-gray-200 font-bold">
+                  +
+                </button>
+              </div>
+              <span class="font-bold text-blue-600 text-lg">$${subtotal.toFixed(2)}</span>
+            </div>
+          </div>
+        `;
+      });
+      
+      html += `
+          </div>
+          <div class="mt-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg p-4 shadow-lg">
+            <div class="flex justify-between items-center text-xl font-bold">
+              <span>Total:</span>
+              <span>$${getTotal().toFixed(2)}</span>
+            </div>
+            <p class="text-blue-100 text-sm mt-1">Click Checkout button below</p>
+          </div>
+        </div>
+      `;
+      
+      document.getElementById('app').innerHTML = html;
     }
     
-    function addToCart(id) {
-      const product = products.find(p => p.id === id);
-      cart.push(product);
-      tg.HapticFeedback.impactOccurred('light');
-      render();
-    }
-    
-    function getTotal() {
-      return cart.reduce((sum, item) => sum + item.price, 0);
-    }
-    
+    // Checkout handler
     tg.MainButton.onClick(() => {
-      tg.sendData(JSON.stringify({ cart, total: getTotal() }));
-      tg.close();
+      if (cart.length > 0) {
+        const orderData = {
+          items: cart,
+          total: getTotal(),
+          itemCount: cart.reduce((sum, item) => sum + item.quantity, 0),
+          userId: tg.initDataUnsafe?.user?.id,
+          userName: tg.initDataUnsafe?.user?.first_name
+        };
+        
+        tg.sendData(JSON.stringify(orderData));
+        tg.close();
+      }
     });
     
-    render();
+    // Initial render
+    renderProducts();
   </script>
 </body>
 </html>
