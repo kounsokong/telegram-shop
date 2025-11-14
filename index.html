@@ -3,211 +3,74 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Telegram Shop</title>
+  <title>Shop</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body>
-  <div id="root"></div>
-import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Plus, Minus, Trash2, Package } from 'lucide-react';
-
-const TelegramEcommerce = () => {
-  const [tg, setTg] = useState(null);
-  const [cart, setCart] = useState([]);
-  const [view, setView] = useState('products');
-
-  // Sample products
-  const products = [
-    { id: 1, name: 'Wireless Headphones', price: 79.99, image: '🎧', description: 'Premium sound quality' },
-    { id: 2, name: 'Smart Watch', price: 199.99, image: '⌚', description: 'Track your fitness' },
-    { id: 3, name: 'Phone Case', price: 24.99, image: '📱', description: 'Protective & stylish' },
-    { id: 4, name: 'Portable Charger', price: 39.99, image: '🔋', description: '20000mAh capacity' },
-    { id: 5, name: 'Bluetooth Speaker', price: 59.99, image: '🔊', description: '360° sound' },
-    { id: 6, name: 'USB-C Cable', price: 14.99, image: '🔌', description: 'Fast charging' },
-  ];
-
-  useEffect(() => {
-    // Initialize Telegram WebApp
-    const telegram = window.Telegram?.WebApp;
-    if (telegram) {
-      telegram.ready();
-      telegram.expand();
-      telegram.MainButton.setText('View Cart');
-      telegram.MainButton.show();
-      telegram.MainButton.onClick(() => {
-        if (view === 'products') {
-          setView('cart');
-        } else {
-          handleCheckout();
-        }
+  <div id="app"></div>
+  
+  <script>
+    const products = [
+      { id: 1, name: 'Headphones', price: 79.99, emoji: '🎧' },
+      { id: 2, name: 'Smart Watch', price: 199.99, emoji: '⌚' },
+      { id: 3, name: 'Phone Case', price: 24.99, emoji: '📱' },
+      { id: 4, name: 'Charger', price: 39.99, emoji: '🔋' },
+    ];
+    
+    let cart = [];
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+    
+    function render() {
+      const app = document.getElementById('app');
+      
+      let html = '<div class="p-4 bg-gray-50 min-h-screen">';
+      html += '<h1 class="text-2xl font-bold mb-4">Shop</h1>';
+      html += '<div class="grid grid-cols-2 gap-4">';
+      
+      products.forEach(p => {
+        html += `
+          <div class="bg-white p-4 rounded-lg shadow">
+            <div class="text-4xl mb-2 text-center">${p.emoji}</div>
+            <div class="font-bold">${p.name}</div>
+            <div class="text-blue-600">$${p.price}</div>
+            <button onclick="addToCart(${p.id})" class="mt-2 bg-blue-500 text-white px-4 py-2 rounded w-full">
+              Add to Cart
+            </button>
+          </div>
+        `;
       });
-      setTg(telegram);
-    }
-  }, [view]);
-
-  useEffect(() => {
-    if (tg) {
-      if (view === 'cart') {
-        tg.MainButton.setText(`Checkout ($${getTotal().toFixed(2)})`);
-        tg.BackButton.show();
-        tg.BackButton.onClick(() => setView('products'));
+      
+      html += '</div></div>';
+      app.innerHTML = html;
+      
+      tg.MainButton.setText(`Checkout ($${getTotal().toFixed(2)})`);
+      if (cart.length > 0) {
+        tg.MainButton.show();
       } else {
-        tg.MainButton.setText(`View Cart (${cart.length})`);
-        tg.BackButton.hide();
+        tg.MainButton.hide();
       }
     }
-  }, [view, cart, tg]);
-
-  const addToCart = (product) => {
-    const existingItem = cart.find(item => item.id === product.id);
-    if (existingItem) {
-      setCart(cart.map(item =>
-        item.id === product.id
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
-      ));
-    } else {
-      setCart([...cart, { ...product, quantity: 1 }]);
+    
+    function addToCart(id) {
+      const product = products.find(p => p.id === id);
+      cart.push(product);
+      tg.HapticFeedback.impactOccurred('light');
+      render();
     }
     
-    if (tg) {
-      tg.HapticFeedback.impactOccurred('light');
+    function getTotal() {
+      return cart.reduce((sum, item) => sum + item.price, 0);
     }
-  };
-
-  const updateQuantity = (productId, delta) => {
-    setCart(cart.map(item =>
-      item.id === productId
-        ? { ...item, quantity: Math.max(0, item.quantity + delta) }
-        : item
-    ).filter(item => item.quantity > 0));
     
-    if (tg) {
-      tg.HapticFeedback.impactOccurred('light');
-    }
-  };
-
-  const removeFromCart = (productId) => {
-    setCart(cart.filter(item => item.id !== productId));
-    if (tg) {
-      tg.HapticFeedback.impactOccurred('medium');
-    }
-  };
-
-  const getTotal = () => {
-    return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  };
-
-  const handleCheckout = () => {
-    if (tg && cart.length > 0) {
-      const orderData = {
-        items: cart,
-        total: getTotal(),
-        userId: tg.initDataUnsafe?.user?.id
-      };
-      
-      tg.sendData(JSON.stringify(orderData));
+    tg.MainButton.onClick(() => {
+      tg.sendData(JSON.stringify({ cart, total: getTotal() }));
       tg.close();
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {view === 'products' ? (
-        <div className="p-4">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">Shop</h1>
-            <p className="text-gray-600">Browse our products</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            {products.map(product => (
-              <div key={product.id} className="bg-white rounded-lg shadow p-4">
-                <div className="text-5xl mb-3 text-center">{product.image}</div>
-                <h3 className="font-semibold text-gray-800 mb-1 text-sm">{product.name}</h3>
-                <p className="text-xs text-gray-500 mb-2">{product.description}</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-lg font-bold text-blue-600">${product.price}</span>
-                  <button
-                    onClick={() => addToCart(product)}
-                    className="bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600 transition"
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="p-4">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">Shopping Cart</h1>
-            <p className="text-gray-600">{cart.length} items</p>
-          </div>
-
-          {cart.length === 0 ? (
-            <div className="text-center py-12">
-              <ShoppingCart size={64} className="mx-auto text-gray-300 mb-4" />
-              <p className="text-gray-500">Your cart is empty</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {cart.map(item => (
-                <div key={item.id} className="bg-white rounded-lg shadow p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="text-3xl">{item.image}</div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-800">{item.name}</h3>
-                      <p className="text-sm text-gray-500">${item.price} each</p>
-                    </div>
-                    <button
-                      onClick={() => removeFromCart(item.id)}
-                      className="text-red-500 p-2"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between mt-3">
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => updateQuantity(item.id, -1)}
-                        className="bg-gray-200 p-1 rounded"
-                      >
-                        <Minus size={16} />
-                      </button>
-                      <span className="font-semibold w-8 text-center">{item.quantity}</span>
-                      <button
-                        onClick={() => updateQuantity(item.id, 1)}
-                        className="bg-gray-200 p-1 rounded"
-                      >
-                        <Plus size={16} />
-                      </button>
-                    </div>
-                    <span className="font-bold text-blue-600">
-                      ${(item.price * item.quantity).toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-
-              <div className="bg-blue-50 rounded-lg p-4 mt-6">
-                <div className="flex justify-between items-center text-lg font-bold">
-                  <span>Total:</span>
-                  <span className="text-blue-600">${getTotal().toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default TelegramEcommerce;
+    });
+    
+    render();
+  </script>
 </body>
 </html>
